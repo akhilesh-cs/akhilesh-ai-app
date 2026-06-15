@@ -22,19 +22,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # ─────────────────────────────────────────
 st.set_page_config(page_title="AI Teacher Assistant", page_icon="📚", layout="wide")
 
-# Make the right "Actions" column stick to the viewport while scrolling
-st.markdown("""
-<style>
-    div[data-testid="column"]:nth-of-type(2) {
-        position: sticky;
-        top: 4rem;
-        align-self: flex-start;
-        max-height: calc(100vh - 5rem);
-        overflow-y: auto;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 
 # ─────────────────────────────────────────
 #  SESSION STATE
@@ -655,98 +642,100 @@ with st.sidebar:
         st.caption("No saved plans yet. Click 🔄 Refresh after saving, or save your work using 💾 Save to Cloud on the right before leaving.")
 
 # ── Main area ─────────────────────────────
-col_main, col_actions = st.columns([3, 1])
-
-with col_main:
-    if generate_btn:
-        if not subject or not topics:
-            st.warning("Please fill in Subject and Topics.")
-        else:
-            title = f"{task} — {curriculum} · {subject} · {grade}"
-            with st.spinner("Generating... ⏳"):
-                try:
-                    result = generate(build_prompt(
-                        task, subject, grade, topics,
-                        lessons_per_week, duration, curriculum,
-                        activity_duration, test_duration
-                    ))
-                    st.session_state.current_output = result
-                    st.session_state.current_title  = title
-                    st.session_state.current_task   = task
-                    st.session_state.edit_mode      = False
-                    st.session_state.edit_id        = None
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-    if st.session_state.current_output:
-        st.subheader(st.session_state.current_title)
-        if st.session_state.edit_mode:
-            edited = st.text_area("✏️ Edit:", value=st.session_state.current_output, height=500)
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("✅ Save edits", type="primary"):
-                    st.session_state.current_output = edited
-                    if st.session_state.edit_id:
-                        save_plan(
-                            st.session_state.current_title, edited,
-                            st.session_state.current_task, "", "", ""
-                        )
-                    st.session_state.edit_mode = False
-                    st.rerun()
-            with c2:
-                if st.button("❌ Cancel edit"):
-                    st.session_state.edit_mode = False
-                    st.rerun()
-        else:
-            st.markdown(st.session_state.current_output)
+# ── Generate handling ──
+if generate_btn:
+    if not subject or not topics:
+        st.warning("Please fill in Subject and Topics.")
     else:
-        st.info("👈 Fill in your details on the left and click ⚡ Generate")
+        title = f"{task} — {curriculum} · {subject} · {grade}"
+        with st.spinner("Generating... ⏳"):
+            try:
+                result = generate(build_prompt(
+                    task, subject, grade, topics,
+                    lessons_per_week, duration, curriculum,
+                    activity_duration, test_duration
+                ))
+                st.session_state.current_output = result
+                st.session_state.current_title  = title
+                st.session_state.current_task   = task
+                st.session_state.edit_mode      = False
+                st.session_state.edit_id        = None
+            except Exception as e:
+                st.error(f"Error: {e}")
 
-with col_actions:
-    if st.session_state.current_output:
-        st.subheader("Actions")
+# ── Actions toolbar (always visible at top, no scrolling needed) ──
+if st.session_state.current_output:
+    st.subheader(st.session_state.current_title)
 
-        if st.button("💾 Save to Cloud", use_container_width=True):
+    action_cols = st.columns(6)
+    with action_cols[0]:
+        if st.button("💾 Save", use_container_width=True):
             save_plan(
                 st.session_state.current_title,
                 st.session_state.current_output,
                 st.session_state.current_task,
                 curriculum, subject, grade
             )
-
+    with action_cols[1]:
         if st.button("✏️ Edit", use_container_width=True):
             st.session_state.edit_mode = True
             st.rerun()
 
-        st.divider()
-
-        word_buf = export_word(st.session_state.current_title, st.session_state.current_output)
+    word_buf = export_word(st.session_state.current_title, st.session_state.current_output)
+    with action_cols[2]:
         st.download_button(
-            "⬇️ Download Word", data=word_buf,
+            "⬇️ Word", data=word_buf,
             file_name=f"{st.session_state.current_title[:40]}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True
         )
 
-        if "Lesson Plan" in st.session_state.current_task:
-            xl_buf = export_excel(st.session_state.current_title, st.session_state.current_output)
+    if "Lesson Plan" in st.session_state.current_task:
+        xl_buf = export_excel(st.session_state.current_title, st.session_state.current_output)
+        with action_cols[3]:
             st.download_button(
-                "📊 Download Excel", data=xl_buf,
+                "📊 Excel", data=xl_buf,
                 file_name=f"{st.session_state.current_title[:40]}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
+    with action_cols[4]:
         st.download_button(
-            "📄 Download .txt", data=st.session_state.current_output,
+            "📄 Text", data=st.session_state.current_output,
             file_name=f"{st.session_state.current_title[:40]}.txt",
             mime="text/plain", use_container_width=True
         )
 
-        st.divider()
+    with action_cols[5]:
         if st.button("🗑 Clear", use_container_width=True):
             st.session_state.current_output = ""
             st.session_state.current_title  = ""
             st.session_state.edit_mode      = False
             st.session_state.edit_id        = None
             st.rerun()
+
+    st.divider()
+
+    # ── Content display ──
+    if st.session_state.edit_mode:
+        edited = st.text_area("✏️ Edit:", value=st.session_state.current_output, height=500)
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("✅ Save edits", type="primary"):
+                st.session_state.current_output = edited
+                if st.session_state.edit_id:
+                    save_plan(
+                        st.session_state.current_title, edited,
+                        st.session_state.current_task, "", "", ""
+                    )
+                st.session_state.edit_mode = False
+                st.rerun()
+        with c2:
+            if st.button("❌ Cancel edit"):
+                st.session_state.edit_mode = False
+                st.rerun()
+    else:
+        st.markdown(st.session_state.current_output)
+else:
+    st.info("👈 Fill in your details on the left and click ⚡ Generate")
