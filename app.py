@@ -2,10 +2,14 @@ import streamlit as st
 from groq import Groq
 from supabase import create_client, Client
 from docx import Document
+from docx.shared import Inches
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from datetime import datetime
 import io
+import re
+import requests
+import urllib.parse
 
 # ─────────────────────────────────────────
 #  CONFIG
@@ -37,6 +41,7 @@ for key, val in {
     "edit_id": None,
     "saved_plans": [],
     "auth_mode": "login",
+    "generated_images": {},
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -399,13 +404,27 @@ def build_prompt(task, subject, grade, topics, lessons_per_week,
 # ─────────────────────────────────────────
 #  EXPORT FUNCTIONS
 # ─────────────────────────────────────────
-def export_word(title, content):
+def export_word(title, content, images=None):
+    images = images or {}
     doc = Document()
     doc.add_heading(title, 0)
     doc.add_paragraph(f"Generated: {datetime.now().strftime('%d %b %Y %H:%M')}")
     doc.add_paragraph("")
     for line in content.split("\n"):
-        if   line.startswith("# "):   doc.add_heading(line[2:], level=1)
+        m = re.match(r"\[IMAGE:\s*(.*?)\]", line.strip(), re.IGNORECASE)
+        if m:
+            desc = m.group(1).strip()
+            img_bytes = images.get(desc)
+            if img_bytes:
+                try:
+                    doc.add_picture(io.BytesIO(img_bytes), width=Inches(4))
+                    cap = doc.add_paragraph(desc)
+                    cap.style = doc.styles["Caption"] if "Caption" in [s.name for s in doc.styles] else cap.style
+                except Exception:
+                    doc.add_paragraph(f"[Image: {desc}]")
+            else:
+                doc.add_paragraph(f"[Image suggestion: {desc}]")
+        elif line.startswith("# "):   doc.add_heading(line[2:], level=1)
         elif line.startswith("## "):  doc.add_heading(line[3:], level=2)
         elif line.startswith("### "): doc.add_heading(line[4:], level=3)
         elif line.startswith(("- ","* ")): doc.add_paragraph(line[2:], style="List Bullet")
@@ -437,6 +456,29 @@ def export_excel(title, content):
     ws.column_dimensions["C"].width = 30
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return buf
+
+# ─────────────────────────────────────────
+#  IMAGE FUNCTIONS
+# ─────────────────────────────────────────
+def extract_image_prompts(content):
+    """Find lines like [IMAGE: description] in the AI output and return list of descriptions."""
+    return re.findall(r"\[IMAGE:\s*(.*?)\]", content, re.IGNORECASE)
+
+def generate_image(prompt_text, width=512, height=512):
+    """Generate an image via Pollinations.ai (free, no API key needed). Returns bytes or None."""
+    try:
+        encoded = urllib.parse.quote(prompt_text)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true"
+        resp = requests.get(url, timeout=60)
+        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image"):
+            return resp.content
+        return None
+    except Exception:
+        return None
+
+def reference_image_search_url(query):
+    """Build a free reference image search link (Option C)."""
+    return f"https://www.google.com/search?q={urllib.parse.quote(query)}&tbm=isch"
 
 # ═════════════════════════════════════════
 #  LOGIN / SIGNUP PAGE
@@ -645,8 +687,14 @@ with st.sidebar:
             if spec_parts:
                 question_specs = "Include exactly: " + ", ".join(spec_parts) + ". "
             if include_images:
-                question_specs += ("For relevant questions, suggest where an image or diagram "
-                                    "should appear and describe what it should show. ")
+                question_specs += (
+                    "Wherever a diagram, illustration, or image would help "
+                    "(e.g. for a question or activity), insert a placeholder on its own line "
+                    "in EXACTLY this format: [IMAGE: short description of the image to generate] "
+                    "— for example [IMAGE: labeled diagram of a plant cell] or "
+                    "[IMAGE: a triangle with sides 3, 4 and 5 labeled]. "
+                    "Use 1-4 such placeholders depending on relevance. "
+                )
 
     st.divider()
     col1, col2 = st.columns(2)
@@ -711,12 +759,77 @@ if generate_btn:
                 st.session_state.current_task   = task
                 st.session_state.edit_mode      = False
                 st.session_state.edit_id        = None
+
+                # Generate actual images for any [IMAGE: ...] placeholders
+                img_prompts = extract_image_prompts(result)
+                generated_images = {}
+                if img_prompts:
+                    with st.spinner(f"Generating {len(img_prompts)} image(s)... 🎨"):
+                        for desc in img_prompts:
+                            img_bytes = generate_image(desc)
+                            if img_bytes:
+                                generated_images[desc] = img_bytes
+                st.session_state.generated_images = generated_images
             except Exception as e:
                 st.error(f"Error: {e}")
 
 # ── Main content display ──
 if st.session_state.current_output:
     st.subheader(st.session_state.current_title)
+
+    images = st.session_state.get("generated_images", {})
+
+    # Action toolbar
+    action_cols = st.columns(6)
+    with action_cols[0]:
+        if st.button("💾 Save", use_container_width=True):
+            save_plan(
+                st.session_state.current_title,
+                st.session_state.current_output,
+                st.session_state.current_task,
+                curriculum, subject, grade
+            )
+    with action_cols[1]:
+        if st.button("✏️ Edit", use_container_width=True):
+            st.session_state.edit_mode = True
+            st.rerun()
+
+    word_buf = export_word(st.session_state.current_title, st.session_state.current_output, images)
+    with action_cols[2]:
+        st.download_button(
+            "⬇️ Word", data=word_buf,
+            file_name=f"{st.session_state.current_title[:40]}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+
+    if "Lesson Plan" in st.session_state.current_task:
+        xl_buf = export_excel(st.session_state.current_title, st.session_state.current_output)
+        with action_cols[3]:
+            st.download_button(
+                "📊 Excel", data=xl_buf,
+                file_name=f"{st.session_state.current_title[:40]}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+    with action_cols[4]:
+        st.download_button(
+            "📄 Text", data=st.session_state.current_output,
+            file_name=f"{st.session_state.current_title[:40]}.txt",
+            mime="text/plain", use_container_width=True
+        )
+
+    with action_cols[5]:
+        if st.button("🗑 Clear", use_container_width=True):
+            st.session_state.current_output = ""
+            st.session_state.current_title  = ""
+            st.session_state.edit_mode      = False
+            st.session_state.edit_id        = None
+            st.session_state.generated_images = {}
+            st.rerun()
+
+    st.divider()
 
     if st.session_state.edit_mode:
         edited = st.text_area("✏️ Edit:", value=st.session_state.current_output, height=500)
@@ -736,6 +849,22 @@ if st.session_state.current_output:
                 st.session_state.edit_mode = False
                 st.rerun()
     else:
-        st.markdown(st.session_state.current_output)
+        content = st.session_state.current_output
+        images  = st.session_state.get("generated_images", {})
+
+        # Split content on [IMAGE: ...] placeholders and render inline
+        parts = re.split(r"(\[IMAGE:\s*.*?\])", content, flags=re.IGNORECASE)
+        for part in parts:
+            m = re.match(r"\[IMAGE:\s*(.*?)\]", part, re.IGNORECASE)
+            if m:
+                desc = m.group(1).strip()
+                img_bytes = images.get(desc)
+                if img_bytes:
+                    st.image(img_bytes, caption=desc, width=400)
+                else:
+                    st.info(f"🖼️ Image suggestion: *{desc}*")
+                    st.markdown(f"[🔎 Search reference images]({reference_image_search_url(desc)})")
+            elif part.strip():
+                st.markdown(part)
 else:
     st.info("👈 Fill in your details on the left and click ⚡ Generate")
