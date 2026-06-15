@@ -342,7 +342,8 @@ def generate(prompt):
     return response.choices[0].message.content
 
 def build_prompt(task, subject, grade, topics, lessons_per_week,
-                 duration, curriculum, activity_duration=30, test_duration=45):
+                 duration, curriculum, activity_duration=30, test_duration=45,
+                 question_specs=""):
     ctx = {
         "IB (International Baccalaureate)":  "Use IB terminology (ATL skills, Learner Profile, Command Terms). Include inquiry questions.",
         "IGCSE (Cambridge)":                  "Use Cambridge command terms (describe, explain, evaluate, analyse). Align with Cambridge assessment objectives.",
@@ -366,26 +367,34 @@ def build_prompt(task, subject, grade, topics, lessons_per_week,
         "🎯 Class Activity": base + (
             f"Design an engaging {activity_duration}-minute classroom activity. "
             "Include: Title, Objective, Step-by-step instructions, Group/individual, "
-            "Materials, Expected outcomes, Extension task."),
+            "Materials, Expected outcomes, Extension task. " + question_specs),
         "📝 Homework": base + (
-            "Create a homework assignment with 5-8 questions (easy/medium/hard). "
-            "Include instructions, expected time, learning outcome."),
+            "Create a homework assignment. "
+            + (question_specs if question_specs else
+               "Include 5-8 questions of varying difficulty (easy/medium/hard). ")
+            + "Include instructions, expected time, learning outcome."),
         "📄 Unit Test": base + (
-            "Create a full unit test: 5 MCQ, 5 short answer, 1 essay/long answer. "
-            "Show total marks and include mark scheme at end."),
+            "Create a full unit test covering ALL topics. "
+            + (question_specs if question_specs else
+               "Include 5 MCQ, 5 short answer, 1 essay/long answer. ")
+            + "Show total marks and include mark scheme at end."),
         "📃 Class Test": base + (
-            f"Create a {test_duration}-minute class test with 3-5 questions, "
-            "mix of types, total marks, and answer key."),
+            f"Create a {test_duration}-minute class test. "
+            + (question_specs if question_specs else
+               "Include 3-5 questions, mix of types. ")
+            + "Show total marks and include answer key."),
         "❓ Quiz": base + (
-            "Create a 10-question quiz with MCQ, true/false, fill-in-the-blank. "
-            "Include answers at the end."),
+            "Create a quiz. "
+            + (question_specs if question_specs else
+               "Include 10 questions: MCQ, true/false, fill-in-the-blank. ")
+            + "Include answers at the end."),
         "📅 Weekly Schedule": base + (
             f"Create a weekly schedule for {lessons_per_week} lessons/week, "
             f"{duration} min each. Include day/time, topic, description, homework slots."),
         "📊 Marking Rubric": base + (
             "Create a marking rubric with 4-5 criteria, 4 performance levels "
-            "(Excellent/Good/Satisfactory/Needs Improvement), descriptors, marks."),
-    }.get(task, base + f"Create educational content for {task}.")
+            "(Excellent/Good/Satisfactory/Needs Improvement), descriptors, marks. " + question_specs),
+    }.get(task, base + f"Create educational content for {task}. " + question_specs)
 
 # ─────────────────────────────────────────
 #  EXPORT FUNCTIONS
@@ -598,6 +607,47 @@ with st.sidebar:
     elif task == "📋 Lesson Plan":
         st.info(f"📅 Will generate {int(lessons_per_week)} lesson plan(s)")
 
+    # ── Question/Content customization (all tasks except Lesson Plan) ──
+    question_specs = ""
+    include_images = False
+
+    if task != "📋 Lesson Plan":
+        with st.expander("🧩 Customize question types & marks", expanded=False):
+            include_images = st.checkbox(
+                "🖼️ Include image/diagram suggestions",
+                help="AI will suggest where diagrams or images should be placed and describe them"
+            )
+
+            st.caption("Specify how many of each question type to include (leave 0 to skip):")
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                n_mcq        = st.number_input("❓ MCQ", min_value=0, max_value=30, value=0)
+                n_fill_blank = st.number_input("✏️ Fill in the blanks", min_value=0, max_value=30, value=0)
+                n_match      = st.number_input("🔗 Match the column", min_value=0, max_value=10, value=0)
+                n_true_false = st.number_input("☑️ True / False", min_value=0, max_value=30, value=0)
+            with col_b:
+                n_1marker = st.number_input("1️⃣ 1-mark questions", min_value=0, max_value=30, value=0)
+                n_2marker = st.number_input("2️⃣ 2-mark questions", min_value=0, max_value=30, value=0)
+                n_4marker = st.number_input("4️⃣ 4-mark questions", min_value=0, max_value=30, value=0)
+                n_essay   = st.number_input("📝 Long answer / Essay", min_value=0, max_value=10, value=0)
+
+            spec_parts = []
+            if n_mcq:        spec_parts.append(f"{n_mcq} multiple choice questions (MCQ)")
+            if n_fill_blank: spec_parts.append(f"{n_fill_blank} fill-in-the-blank questions")
+            if n_match:      spec_parts.append(f"{n_match} match-the-column items")
+            if n_true_false: spec_parts.append(f"{n_true_false} true/false questions")
+            if n_1marker:    spec_parts.append(f"{n_1marker} questions worth 1 mark each")
+            if n_2marker:    spec_parts.append(f"{n_2marker} questions worth 2 marks each")
+            if n_4marker:    spec_parts.append(f"{n_4marker} questions worth 4 marks each")
+            if n_essay:      spec_parts.append(f"{n_essay} long-answer/essay question(s)")
+
+            if spec_parts:
+                question_specs = "Include exactly: " + ", ".join(spec_parts) + ". "
+            if include_images:
+                question_specs += ("For relevant questions, suggest where an image or diagram "
+                                    "should appear and describe what it should show. ")
+
     st.divider()
     col1, col2 = st.columns(2)
     with col1:
@@ -616,53 +666,6 @@ with st.sidebar:
         st.session_state.edit_mode      = False
         st.session_state.edit_id        = None
         st.rerun()
-
-    # ── Actions for current generated content (always visible in sidebar) ──
-    if st.session_state.current_output:
-        st.divider()
-        st.subheader("📌 Actions")
-
-        if st.button("💾 Save to Cloud", use_container_width=True):
-            save_plan(
-                st.session_state.current_title,
-                st.session_state.current_output,
-                st.session_state.current_task,
-                curriculum, subject, grade
-            )
-
-        if st.button("✏️ Edit", use_container_width=True):
-            st.session_state.edit_mode = True
-            st.rerun()
-
-        word_buf = export_word(st.session_state.current_title, st.session_state.current_output)
-        st.download_button(
-            "⬇️ Download Word", data=word_buf,
-            file_name=f"{st.session_state.current_title[:40]}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True
-        )
-
-        if "Lesson Plan" in st.session_state.current_task:
-            xl_buf = export_excel(st.session_state.current_title, st.session_state.current_output)
-            st.download_button(
-                "📊 Download Excel", data=xl_buf,
-                file_name=f"{st.session_state.current_title[:40]}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-
-        st.download_button(
-            "📄 Download Text", data=st.session_state.current_output,
-            file_name=f"{st.session_state.current_title[:40]}.txt",
-            mime="text/plain", use_container_width=True
-        )
-
-        if st.button("🗑 Clear", use_container_width=True):
-            st.session_state.current_output = ""
-            st.session_state.current_title  = ""
-            st.session_state.edit_mode      = False
-            st.session_state.edit_id        = None
-            st.rerun()
 
     st.divider()
     st.subheader("📂 My Saved Plans")
@@ -700,7 +703,8 @@ if generate_btn:
                 result = generate(build_prompt(
                     task, subject, grade, topics,
                     lessons_per_week, duration, curriculum,
-                    activity_duration, test_duration
+                    activity_duration, test_duration,
+                    question_specs
                 ))
                 st.session_state.current_output = result
                 st.session_state.current_title  = title
