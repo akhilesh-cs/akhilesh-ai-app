@@ -1,0 +1,6 @@
+.streamlit/secrets.toml
+key for app.txt
+saved_plans.json
+.DS_Store
+__pycache__/
+*.pyc
