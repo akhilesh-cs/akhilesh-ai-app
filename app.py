@@ -617,6 +617,53 @@ with st.sidebar:
         st.session_state.edit_id        = None
         st.rerun()
 
+    # ── Actions for current generated content (always visible in sidebar) ──
+    if st.session_state.current_output:
+        st.divider()
+        st.subheader("📌 Actions")
+
+        if st.button("💾 Save to Cloud", use_container_width=True):
+            save_plan(
+                st.session_state.current_title,
+                st.session_state.current_output,
+                st.session_state.current_task,
+                curriculum, subject, grade
+            )
+
+        if st.button("✏️ Edit", use_container_width=True):
+            st.session_state.edit_mode = True
+            st.rerun()
+
+        word_buf = export_word(st.session_state.current_title, st.session_state.current_output)
+        st.download_button(
+            "⬇️ Download Word", data=word_buf,
+            file_name=f"{st.session_state.current_title[:40]}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+
+        if "Lesson Plan" in st.session_state.current_task:
+            xl_buf = export_excel(st.session_state.current_title, st.session_state.current_output)
+            st.download_button(
+                "📊 Download Excel", data=xl_buf,
+                file_name=f"{st.session_state.current_title[:40]}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+        st.download_button(
+            "📄 Download Text", data=st.session_state.current_output,
+            file_name=f"{st.session_state.current_title[:40]}.txt",
+            mime="text/plain", use_container_width=True
+        )
+
+        if st.button("🗑 Clear", use_container_width=True):
+            st.session_state.current_output = ""
+            st.session_state.current_title  = ""
+            st.session_state.edit_mode      = False
+            st.session_state.edit_id        = None
+            st.rerun()
+
     st.divider()
     st.subheader("📂 My Saved Plans")
     if st.button("🔄 Refresh", use_container_width=True):
@@ -663,61 +710,10 @@ if generate_btn:
             except Exception as e:
                 st.error(f"Error: {e}")
 
-# ── Actions toolbar (always visible at top, no scrolling needed) ──
+# ── Main content display ──
 if st.session_state.current_output:
     st.subheader(st.session_state.current_title)
 
-    action_cols = st.columns(6)
-    with action_cols[0]:
-        if st.button("💾 Save", use_container_width=True):
-            save_plan(
-                st.session_state.current_title,
-                st.session_state.current_output,
-                st.session_state.current_task,
-                curriculum, subject, grade
-            )
-    with action_cols[1]:
-        if st.button("✏️ Edit", use_container_width=True):
-            st.session_state.edit_mode = True
-            st.rerun()
-
-    word_buf = export_word(st.session_state.current_title, st.session_state.current_output)
-    with action_cols[2]:
-        st.download_button(
-            "⬇️ Word", data=word_buf,
-            file_name=f"{st.session_state.current_title[:40]}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True
-        )
-
-    if "Lesson Plan" in st.session_state.current_task:
-        xl_buf = export_excel(st.session_state.current_title, st.session_state.current_output)
-        with action_cols[3]:
-            st.download_button(
-                "📊 Excel", data=xl_buf,
-                file_name=f"{st.session_state.current_title[:40]}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-
-    with action_cols[4]:
-        st.download_button(
-            "📄 Text", data=st.session_state.current_output,
-            file_name=f"{st.session_state.current_title[:40]}.txt",
-            mime="text/plain", use_container_width=True
-        )
-
-    with action_cols[5]:
-        if st.button("🗑 Clear", use_container_width=True):
-            st.session_state.current_output = ""
-            st.session_state.current_title  = ""
-            st.session_state.edit_mode      = False
-            st.session_state.edit_id        = None
-            st.rerun()
-
-    st.divider()
-
-    # ── Content display ──
     if st.session_state.edit_mode:
         edited = st.text_area("✏️ Edit:", value=st.session_state.current_output, height=500)
         c1, c2 = st.columns(2)
