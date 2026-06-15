@@ -306,7 +306,23 @@ if not st.session_state.user:
 #  MAIN APP (logged in)
 # ═════════════════════════════════════════
 st.title("📚 AI Teacher Assistant")
-st.caption("Powered by Groq (Llama 3) — Free & Fast | IB · IGCSE · Singapore · A-Level · Checkpoint & more")
+st.caption("Developed by Akhilesh Kumar Srivastava — AI Teaching Assistant for IB, IGCSE, Singapore, A-Level & more")
+
+with st.expander("ℹ️ About this tool / How to use"):
+    st.markdown("""
+    **Purpose:** Save time on lesson planning, activities, homework, tests, and quizzes — all generated instantly by AI.
+
+    **Who can use it:** Any teacher — just sign up with your email to get your own private workspace.
+
+    **How to use:**
+    1. Select your Curriculum, Grade, Subject, and Topics in the sidebar
+    2. Set lessons per week and lesson duration
+    3. Choose what to generate (Lesson Plan, Quiz, Test, etc.)
+    4. Click ⚡ Generate
+    5. Save to Cloud, Edit, or Download as Word / Excel
+
+    **Developed by:** Akhilesh Kumar Srivastava
+    """)
 
 # ── Sidebar ───────────────────────────────
 with st.sidebar:
@@ -385,7 +401,7 @@ with st.sidebar:
                 if st.button("🗑", key=f"del_{plan['id']}"):
                     delete_plan(plan["id"])
     else:
-        st.caption("No saved plans yet.")
+        st.caption("No saved plans yet. Click 🔄 Refresh after saving, or save your work using 💾 Save to Cloud on the right before leaving.")
 
 # ── Main area ─────────────────────────────
 col_main, col_actions = st.columns([3, 1])
