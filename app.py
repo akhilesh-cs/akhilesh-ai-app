@@ -22,6 +22,20 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # ─────────────────────────────────────────
 st.set_page_config(page_title="AI Teacher Assistant", page_icon="📚", layout="wide")
 
+# Make the right "Actions" column stick to the viewport while scrolling
+st.markdown("""
+<style>
+    div[data-testid="column"]:nth-of-type(2) {
+        position: sticky;
+        top: 4rem;
+        align-self: flex-start;
+        max-height: calc(100vh - 5rem);
+        overflow-y: auto;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
 # ─────────────────────────────────────────
 #  SESSION STATE
 # ─────────────────────────────────────────
