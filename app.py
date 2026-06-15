@@ -64,6 +64,145 @@ GRADE_OPTIONS = {
 }
 
 # ─────────────────────────────────────────
+#  SUBJECT OPTIONS (per curriculum)
+# ─────────────────────────────────────────
+SUBJECT_OPTIONS = {
+    "IB (International Baccalaureate)":  ["Computer Science", "Mathematics", "Physics", "Chemistry",
+                                           "Biology", "English", "Economics", "Business Management",
+                                           "Psychology", "History", "Geography"],
+    "IGCSE (Cambridge)":                  ["Computer Science", "Mathematics", "Physics", "Chemistry",
+                                           "Biology", "English", "Economics", "Business Studies",
+                                           "ICT", "History", "Geography"],
+    "A-Level (Cambridge)":                ["Computer Science", "Mathematics", "Physics", "Chemistry",
+                                           "Biology", "English", "Economics", "Business",
+                                           "Psychology", "History", "Geography"],
+    "Cambridge Checkpoint":               ["Mathematics", "Science", "English", "ICT", "Computer Science"],
+    "Singapore (MOE)":                    ["Mathematics", "Science", "English", "Computer Science",
+                                           "Social Studies", "Art"],
+    "CBSE (India)":                       ["Mathematics", "Science", "English", "Computer Science",
+                                           "Social Science", "Hindi", "Physics", "Chemistry", "Biology"],
+    "American (Common Core)":            ["Mathematics", "Science", "English Language Arts",
+                                           "Computer Science", "Social Studies"],
+    "Australian (ACARA)":                 ["Mathematics", "Science", "English", "Digital Technologies",
+                                           "Humanities and Social Sciences"],
+    "British (National Curriculum)":      ["Mathematics", "Science", "English", "Computing",
+                                           "History", "Geography"],
+}
+
+# ─────────────────────────────────────────
+#  TOPIC OPTIONS (per subject)
+# ─────────────────────────────────────────
+TOPIC_OPTIONS = {
+    "Computer Science": [
+        "Abstraction & Decomposition", "Algorithms & Flowcharts", "Programming Basics (Variables, Data Types)",
+        "Sequencing, Selection & Iteration", "Functions & Procedures", "Arrays & Lists",
+        "Searching & Sorting Algorithms", "Data Structures (Stacks, Queues, Trees)",
+        "Object-Oriented Programming", "Databases & SQL", "Networks & Protocols",
+        "Binary, Hex & Number Systems", "Logic Gates & Boolean Algebra", "Cyber Security",
+        "Web Development (HTML/CSS/JS)", "Python Programming", "Computational Thinking",
+        "Software Development Life Cycle", "Ethics in Computing", "Artificial Intelligence Basics"
+    ],
+    "Mathematics": [
+        "Number & Place Value", "Fractions, Decimals & Percentages", "Algebra & Expressions",
+        "Equations & Inequalities", "Geometry & Shapes", "Measurement & Units",
+        "Statistics & Data Handling", "Probability", "Ratio & Proportion",
+        "Functions & Graphs", "Trigonometry", "Calculus (Differentiation/Integration)",
+        "Vectors & Transformations", "Sequences & Series", "Coordinate Geometry"
+    ],
+    "Physics": [
+        "Motion & Forces", "Energy & Work", "Electricity & Circuits", "Waves & Sound",
+        "Light & Optics", "Magnetism & Electromagnetism", "Thermal Physics",
+        "Nuclear Physics & Radioactivity", "Gravitation", "Pressure & Density"
+    ],
+    "Chemistry": [
+        "Atomic Structure & Periodic Table", "Bonding (Ionic, Covalent, Metallic)",
+        "Chemical Reactions & Equations", "Acids, Bases & Salts", "Rates of Reaction",
+        "Energetics", "Organic Chemistry", "Electrolysis", "States of Matter", "Stoichiometry"
+    ],
+    "Biology": [
+        "Cell Structure & Function", "Nutrition & Digestion", "Respiration", "Photosynthesis",
+        "Transport in Plants & Animals", "Reproduction", "Genetics & Inheritance",
+        "Evolution & Natural Selection", "Ecosystems & Ecology", "Human Body Systems"
+    ],
+    "English": [
+        "Reading Comprehension", "Creative Writing", "Grammar & Punctuation",
+        "Poetry Analysis", "Persuasive Writing", "Narrative Writing", "Shakespeare",
+        "Novel Study", "Speaking & Listening", "Vocabulary Building"
+    ],
+    "English Language Arts": [
+        "Reading Comprehension", "Creative Writing", "Grammar & Punctuation",
+        "Poetry Analysis", "Persuasive Writing", "Narrative Writing", "Novel Study",
+        "Speaking & Listening", "Vocabulary Building"
+    ],
+    "Science": [
+        "Living Things & Habitats", "Forces & Motion", "Materials & Their Properties",
+        "Earth & Space", "Energy", "States of Matter", "Human Body", "Plants",
+        "Electricity", "Sound & Light"
+    ],
+    "Economics": [
+        "Demand & Supply", "Market Structures", "Macroeconomics & GDP", "Inflation & Unemployment",
+        "International Trade", "Government Intervention", "Microeconomics Basics",
+        "Elasticity", "Money & Banking", "Economic Development"
+    ],
+    "Business Management": [
+        "Business Organisation", "Marketing", "Finance & Accounts", "Human Resource Management",
+        "Operations Management", "Business Strategy", "Entrepreneurship", "External Environment"
+    ],
+    "Business Studies": [
+        "Business Organisation", "Marketing", "Finance & Accounts", "Human Resource Management",
+        "Operations Management", "Business Strategy", "Entrepreneurship", "External Environment"
+    ],
+    "Business": [
+        "Business Organisation", "Marketing", "Finance & Accounts", "Human Resource Management",
+        "Operations Management", "Business Strategy", "Entrepreneurship", "External Environment"
+    ],
+    "Psychology": [
+        "Research Methods", "Biological Psychology", "Cognitive Psychology", "Developmental Psychology",
+        "Social Psychology", "Abnormal Psychology", "Memory", "Attachment"
+    ],
+    "History": [
+        "World War I & II", "Cold War", "Industrial Revolution", "Ancient Civilizations",
+        "Independence Movements", "Civil Rights Movements", "Colonialism", "Revolutions"
+    ],
+    "Geography": [
+        "Climate & Weather", "Population & Migration", "Urbanisation", "Natural Resources",
+        "Ecosystems & Biomes", "Rivers & Coasts", "Tectonic Hazards", "Globalisation",
+        "Development & Inequality"
+    ],
+    "ICT": [
+        "Hardware & Software", "Word Processing & Spreadsheets", "Databases",
+        "Networks & Internet", "Multimedia & Presentations", "E-Safety & Digital Citizenship",
+        "Programming Basics", "Data Representation"
+    ],
+    "Social Studies": [
+        "Citizenship & Government", "Geography of Singapore/Region", "History of the Nation",
+        "Cultural Diversity", "Economics Basics", "Global Connections"
+    ],
+    "Social Science": [
+        "History", "Geography", "Civics", "Economics", "Disaster Management"
+    ],
+    "Hindi": [
+        "व्याकरण (Grammar)", "गद्य (Prose)", "पद्य (Poetry)", "निबंध लेखन (Essay Writing)",
+        "पत्र लेखन (Letter Writing)", "अपठित गद्यांश (Unseen Passage)"
+    ],
+    "Art": [
+        "Drawing & Sketching", "Painting Techniques", "Colour Theory", "Sculpture",
+        "Art History & Appreciation", "Digital Art"
+    ],
+    "Digital Technologies": [
+        "Algorithms & Programming", "Data Representation", "Digital Systems",
+        "Networks", "Impacts of Technology", "Robotics"
+    ],
+    "Computing": [
+        "Algorithms", "Programming (Python/Scratch)", "Data Representation",
+        "Networks", "Computer Systems", "Creating Media", "Online Safety"
+    ],
+    "Humanities and Social Sciences": [
+        "History", "Geography", "Civics & Citizenship", "Economics & Business"
+    ],
+}
+
+# ─────────────────────────────────────────
 #  AUTH FUNCTIONS
 # ─────────────────────────────────────────
 def sign_up(email, password, name, school):
@@ -145,6 +284,43 @@ def delete_plan(plan_id):
         st.rerun()
     except Exception as e:
         st.error(f"Delete error: {e}")
+
+# ─────────────────────────────────────────
+#  SYLLABUS FUNCTIONS (custom teacher topics)
+# ─────────────────────────────────────────
+def get_syllabus(curriculum, grade, subject):
+    """Return list of topics the teacher has saved for this curriculum/grade/subject, or None."""
+    try:
+        uid = st.session_state.user.id
+        res = supabase.table("syllabus").select("*")\
+              .eq("teacher_id", uid)\
+              .eq("curriculum", curriculum)\
+              .eq("grade", grade)\
+              .eq("subject", subject)\
+              .execute()
+        if res.data:
+            topics_str = res.data[0]["topics"]
+            return [t.strip() for t in topics_str.split(",") if t.strip()]
+        return None
+    except Exception:
+        return None
+
+def save_syllabus(curriculum, grade, subject, topics_list):
+    try:
+        uid = st.session_state.user.id
+        topics_str = ", ".join(topics_list)
+        supabase.table("syllabus").upsert({
+            "teacher_id": uid,
+            "curriculum": curriculum,
+            "grade": grade,
+            "subject": subject,
+            "topics": topics_str,
+            "updated_at": datetime.now().isoformat()
+        }, on_conflict="teacher_id,curriculum,grade,subject").execute()
+        return True
+    except Exception as e:
+        st.error(f"Syllabus save error: {e}")
+        return False
 
 # ─────────────────────────────────────────
 #  AI FUNCTIONS
@@ -336,8 +512,69 @@ with st.sidebar:
 
     curriculum = st.selectbox("🎓 Curriculum", list(GRADE_OPTIONS.keys()))
     grade      = st.selectbox("📊 Grade / Year", GRADE_OPTIONS[curriculum])
-    subject    = st.text_input("📖 Subject", placeholder="e.g. Computer Science")
-    topics     = st.text_area("📌 Topics", placeholder="e.g. Algorithms, Sorting, Loops", height=80)
+
+    subject_list = SUBJECT_OPTIONS.get(curriculum, ["Computer Science", "Mathematics", "Science", "English"])
+    subject_list = subject_list + ["Other (type manually)"]
+    subject_choice = st.selectbox("📖 Subject", subject_list)
+
+    if subject_choice == "Other (type manually)":
+        subject = st.text_input("Enter subject name", placeholder="e.g. Computer Science")
+    else:
+        subject = subject_choice
+
+    # ── Topics: use custom syllabus if teacher has saved one, else built-in list ──
+    custom_topics = get_syllabus(curriculum, grade, subject)
+    default_list  = TOPIC_OPTIONS.get(subject, [])
+    topic_list    = custom_topics if custom_topics is not None else default_list
+
+    if topic_list:
+        selected_topics = st.multiselect(
+            "📌 Topics (select one or more)",
+            topic_list,
+            help="Select topics to include — you can also add extra topics below"
+        )
+    else:
+        selected_topics = []
+        st.info("📋 No topic list yet for this subject/grade. Add your syllabus below, or type topics manually.")
+
+    extra_topics = st.text_area(
+        "➕ Additional topics (optional)",
+        placeholder="Type any extra topics not in the list above, separated by commas",
+        height=60
+    )
+
+    topic_parts = selected_topics + (
+        [t.strip() for t in extra_topics.split(",") if t.strip()] if extra_topics else []
+    )
+    topics = ", ".join(topic_parts)
+
+    # ── Syllabus upload / edit ──
+    with st.expander("📚 My Syllabus (add / edit topics for this subject)"):
+        st.caption(f"For: {curriculum} · {grade} · {subject}")
+        if custom_topics:
+            st.success(f"✅ You have {len(custom_topics)} custom topics saved for this subject.")
+            existing_text = ", ".join(custom_topics)
+        else:
+            st.caption("No custom syllabus saved yet. Add your topics below (comma separated) — "
+                       "these will appear in the dropdown above for future use.")
+            existing_text = ", ".join(default_list)
+
+        syllabus_text = st.text_area(
+            "Topics (comma separated)",
+            value=existing_text,
+            height=120,
+            key=f"syllabus_{curriculum}_{grade}_{subject}"
+        )
+        if st.button("💾 Save Syllabus", use_container_width=True,
+                      key=f"save_syllabus_{curriculum}_{grade}_{subject}"):
+            new_topics = [t.strip() for t in syllabus_text.split(",") if t.strip()]
+            if new_topics:
+                if save_syllabus(curriculum, grade, subject, new_topics):
+                    st.success("✅ Syllabus saved! It will now appear in the Topics dropdown.")
+                    st.rerun()
+            else:
+                st.warning("Please enter at least one topic.")
+
     lessons_per_week = st.number_input("Lessons per week", min_value=1, max_value=10, value=3)
     duration         = st.number_input("Lesson duration (min)", min_value=20, max_value=180, value=45)
 
