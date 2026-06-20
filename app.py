@@ -247,6 +247,14 @@ def reset_password(email):
     except Exception as e:
         return False, str(e)
 
+def update_password(new_password, access_token, refresh_token):
+    try:
+        supabase.auth.set_session(access_token, refresh_token)
+        supabase.auth.update_user({"password": new_password})
+        return True, "Password updated successfully! You can now log in with your new password."
+    except Exception as e:
+        return False, str(e)
+
 def sign_out():
     supabase.auth.sign_out()
     for key in ["user","token","refresh_token","current_output","current_title",
@@ -491,6 +499,60 @@ def generate_image(prompt_text, width=512, height=512):
 def reference_image_search_url(query):
     """Build a free reference image search link (Option C)."""
     return f"https://www.google.com/search?q={urllib.parse.quote(query)}&tbm=isch"
+
+# ═════════════════════════════════════════
+#  PASSWORD RECOVERY HANDLING
+# ═════════════════════════════════════════
+# Supabase puts the recovery token in the URL *fragment* (#access_token=...),
+# which Python can't read directly. This tiny JS snippet copies it into a
+# query param (?access_token=...) on first load so Streamlit can see it.
+st.markdown("""
+<script>
+if (window.location.hash && window.location.hash.includes("access_token")) {
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    const type = params.get("type");
+    if (accessToken && !window.location.search.includes("access_token")) {
+        const newUrl = window.location.pathname +
+            "?access_token=" + accessToken +
+            "&refresh_token=" + refreshToken +
+            "&type=" + type;
+        window.location.replace(newUrl);
+    }
+}
+</script>
+""", unsafe_allow_html=True)
+
+qp = st.query_params
+is_recovery = qp.get("type") == "recovery" and qp.get("access_token")
+
+if is_recovery and not st.session_state.user:
+    st.title("📚 AI Teacher Assistant")
+    st.subheader("🔑 Set a new password")
+    st.caption("Enter and confirm your new password below.")
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        new_pw  = st.text_input("New Password", type="password", help="Minimum 6 characters")
+        new_pw2 = st.text_input("Confirm New Password", type="password")
+        if st.button("Update Password", type="primary", use_container_width=True):
+            if not new_pw or not new_pw2:
+                st.warning("Please fill in both fields.")
+            elif new_pw != new_pw2:
+                st.error("Passwords do not match.")
+            elif len(new_pw) < 6:
+                st.error("Password must be at least 6 characters.")
+            else:
+                ok, msg = update_password(new_pw, qp.get("access_token"), qp.get("refresh_token"))
+                if ok:
+                    st.success(msg)
+                    st.info("Go to the Login tab by refreshing this page, then sign in with your new password.")
+                    st.query_params.clear()
+                else:
+                    st.error(msg)
+    st.stop()
 
 # ═════════════════════════════════════════
 #  LOGIN / SIGNUP PAGE
