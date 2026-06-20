@@ -831,23 +831,16 @@ with st.sidebar:
     improvements_input   = ""
     comment_tone         = "Warm and encouraging"
     comment_length       = "Medium (3-4 sentences)"
+    report_mode          = "Single student"
+    batch_groups         = []   # list of (level, [names])
 
     if task == "🗣️ Report Card Comment":
-        st.info("✍️ Fill in details for this student's comment")
-        student_name = st.text_input("Student name (optional)", placeholder="e.g. Aryan, or leave blank for 'the student'")
-        performance_level = st.selectbox(
-            "Overall performance level",
-            ["Excellent", "Good / Above average", "Satisfactory / Average",
-             "Needs improvement", "Struggling significantly"]
+        report_mode = st.radio(
+            "How many students?",
+            ["Single student", "Whole class (batch)"],
+            horizontal=True
         )
-        strengths_input = st.text_area(
-            "Strengths (comma separated)",
-            placeholder="e.g. problem solving, class participation, neat work"
-        )
-        improvements_input = st.text_area(
-            "Areas to improve (comma separated)",
-            placeholder="e.g. time management, showing working, homework completion"
-        )
+
         comment_tone = st.selectbox(
             "Tone",
             ["Warm and encouraging", "Formal and professional", "Direct and concise"]
@@ -856,6 +849,52 @@ with st.sidebar:
             "Length",
             ["Short (1-2 sentences)", "Medium (3-4 sentences)", "Detailed (5+ sentences)"]
         )
+
+        if report_mode == "Single student":
+            st.info("✍️ Fill in details for this student's comment")
+            student_name = st.text_input("Student name (optional)", placeholder="e.g. Aryan, or leave blank for 'the student'")
+            performance_level = st.selectbox(
+                "Overall performance level",
+                ["Excellent", "Good / Above average", "Satisfactory / Average",
+                 "Needs improvement", "Struggling significantly"]
+            )
+            strengths_input = st.text_area(
+                "Strengths (comma separated)",
+                placeholder="e.g. problem solving, class participation, neat work"
+            )
+            improvements_input = st.text_area(
+                "Areas to improve (comma separated)",
+                placeholder="e.g. time management, showing working, homework completion"
+            )
+        else:
+            st.info("👥 Group your class by performance level. Add student names under each level you need — leave a box empty to skip that level.")
+            level_options = ["Excellent", "Good / Above average", "Satisfactory / Average",
+                             "Needs improvement", "Struggling significantly"]
+            for level in level_options:
+                names_text = st.text_area(
+                    f"{level} — student names (one per line or comma separated)",
+                    placeholder="e.g. Aryan, Maya, Tom",
+                    height=70,
+                    key=f"batch_{level}"
+                )
+                if names_text.strip():
+                    names = [n.strip() for n in re.split(r"[,\n]", names_text) if n.strip()]
+                    if names:
+                        batch_groups.append((level, names))
+
+            total_students = sum(len(names) for _, names in batch_groups)
+            if total_students:
+                st.success(f"📋 {total_students} student(s) across {len(batch_groups)} level(s) ready to generate")
+
+            strengths_input = st.text_area(
+                "General strengths to draw from (comma separated)",
+                placeholder="e.g. problem solving, class participation, neat work, creativity, teamwork",
+                help="The AI will vary which strengths it mentions per student so comments don't feel identical"
+            )
+            improvements_input = st.text_area(
+                "General areas to improve (comma separated)",
+                placeholder="e.g. time management, showing working, homework completion, focus"
+            )
 
     # ── Parent Message specific inputs ──
     message_purpose   = ""
@@ -971,12 +1010,59 @@ with st.sidebar:
 # ── Main area ─────────────────────────────
 # ── Generate handling ──
 if generate_btn:
+    is_batch_report = task == "🗣️ Report Card Comment" and report_mode == "Whole class (batch)"
     needs_topics = task not in ["🗣️ Report Card Comment", "💬 Parent Message"]
     missing_subject = not subject
     missing_topics = needs_topics and not topics
+    missing_batch = is_batch_report and not batch_groups
 
     if missing_subject or missing_topics:
         st.warning("Please fill in Subject" + (" and Topics." if needs_topics else "."))
+    elif missing_batch:
+        st.warning("Please add at least one student name under a performance level.")
+    elif is_batch_report:
+        total_students = sum(len(names) for _, names in batch_groups)
+        title = f"🗣️ Report Card Comments — Whole Class · {subject} · {grade}"
+        progress_msg = st.empty()
+        comments = []  # list of (name, level, comment_text)
+        i = 0
+        for level, names in batch_groups:
+            for name in names:
+                i += 1
+                progress_msg.info(f"✍️ Writing comment {i}/{total_students}: {name}...")
+                try:
+                    prompt = build_prompt(
+                        task, subject, grade, topics,
+                        lessons_per_week, duration, curriculum,
+                        activity_duration, test_duration,
+                        question_specs, name, level,
+                        strengths_input, improvements_input, comment_tone,
+                        comment_length, message_platform, message_purpose,
+                        message_details
+                    )
+                    comment_text = generate(prompt)
+                    comments.append((name, level, comment_text))
+                except Exception as e:
+                    comments.append((name, level, f"[Error generating comment: {e}]"))
+        progress_msg.empty()
+
+        # Combine into one readable document
+        combined_parts = [f"# Report Card Comments — {subject}, {grade}\n"]
+        for level, names in batch_groups:
+            level_comments = [(n, c) for n, l, c in comments if l == level]
+            if level_comments:
+                combined_parts.append(f"\n## {level}\n")
+                for name, comment_text in level_comments:
+                    combined_parts.append(f"**{name}:**\n{comment_text}\n")
+        combined_output = "\n".join(combined_parts)
+
+        st.session_state.current_output = combined_output
+        st.session_state.current_title  = title
+        st.session_state.current_task   = task
+        st.session_state.edit_mode      = False
+        st.session_state.edit_id        = None
+        st.session_state.generated_images = {}
+        st.success(f"✅ Generated {len(comments)} comments for the whole class!")
     else:
         if task == "🗣️ Report Card Comment":
             title = f"{task} — {student_name.strip() or 'Student'} · {subject} · {grade}"
