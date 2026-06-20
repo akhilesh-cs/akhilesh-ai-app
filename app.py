@@ -503,27 +503,38 @@ def reference_image_search_url(query):
 # ═════════════════════════════════════════
 #  PASSWORD RECOVERY HANDLING
 # ═════════════════════════════════════════
+import streamlit.components.v1 as components
+
 # Supabase puts the recovery token in the URL *fragment* (#access_token=...),
-# which Python can't read directly. This tiny JS snippet copies it into a
-# query param (?access_token=...) on first load so Streamlit can see it.
-st.markdown("""
+# which Python can't read directly, and st.markdown() does not execute
+# <script> tags. We use components.html (renders in an iframe that DOES
+# run JS) to read the parent page's URL fragment and redirect with a
+# query param (?access_token=...) that Streamlit's Python code CAN read.
+components.html("""
 <script>
-if (window.location.hash && window.location.hash.includes("access_token")) {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
-    const type = params.get("type");
-    if (accessToken && !window.location.search.includes("access_token")) {
-        const newUrl = window.location.pathname +
-            "?access_token=" + accessToken +
-            "&refresh_token=" + refreshToken +
-            "&type=" + type;
-        window.location.replace(newUrl);
+(function() {
+    try {
+        const topHash = window.parent.location.hash;
+        if (topHash && topHash.includes("access_token")) {
+            const hash = topHash.substring(1);
+            const params = new URLSearchParams(hash);
+            const accessToken = params.get("access_token");
+            const refreshToken = params.get("refresh_token");
+            const type = params.get("type");
+            if (accessToken && !window.parent.location.search.includes("access_token")) {
+                const newUrl = window.parent.location.pathname +
+                    "?access_token=" + encodeURIComponent(accessToken) +
+                    "&refresh_token=" + encodeURIComponent(refreshToken) +
+                    "&type=" + encodeURIComponent(type);
+                window.parent.location.replace(newUrl);
+            }
+        }
+    } catch (e) {
+        console.error("recovery redirect error", e);
     }
-}
+})();
 </script>
-""", unsafe_allow_html=True)
+""", height=0, width=0)
 
 qp = st.query_params
 is_recovery = qp.get("type") == "recovery" and qp.get("access_token")
@@ -553,6 +564,9 @@ if is_recovery and not st.session_state.user:
                 else:
                     st.error(msg)
     st.stop()
+elif qp.get("access_token") and not is_recovery:
+    # Token present but type isn't recovery, or already consumed — clear stale params
+    pass
 
 # ═════════════════════════════════════════
 #  LOGIN / SIGNUP PAGE
