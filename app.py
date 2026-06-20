@@ -533,16 +533,18 @@ components.html("""
                     "&type=" + encodeURIComponent(type);
                 const a = document.createElement("a");
                 a.href = newUrl;
-                a.target = "_top";
-                a.innerText = "Click here to continue to password reset →";
-                a.style = "display:inline-block;padding:10px 18px;background:#FF4B4B;" +
-                          "color:white;font-family:sans-serif;font-size:15px;" +
-                          "border-radius:8px;text-decoration:none;font-weight:600;";
+                a.target = "_blank";
+                a.rel = "noopener";
+                a.innerText = "🔑 Click here to set your new password →";
+                a.style = "display:inline-block;padding:12px 22px;background:#FF4B4B;" +
+                          "color:white;font-family:sans-serif;font-size:16px;" +
+                          "border-radius:8px;text-decoration:none;font-weight:600;" +
+                          "box-shadow:0 2px 6px rgba(0,0,0,0.15);";
                 holder.appendChild(a);
-                // Also try auto-click in case the browser permits a
-                // programmatic click on a real anchor (works in some browsers
-                // even when location.replace() is blocked).
-                setTimeout(function(){ a.click(); }, 50);
+                const hint = document.createElement("div");
+                hint.innerText = "Opens in a new tab — you can close this old tab afterward.";
+                hint.style = "font-family:sans-serif;font-size:12px;color:#888;margin-top:8px;";
+                holder.appendChild(hint);
             }
         }
     } catch (e) {
@@ -550,7 +552,7 @@ components.html("""
     }
 })();
 </script>
-""", height=60)
+""", height=90)
 
 qp = st.query_params
 is_recovery = qp.get("type") == "recovery" and qp.get("access_token")
