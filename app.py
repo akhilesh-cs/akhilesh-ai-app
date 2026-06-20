@@ -363,7 +363,10 @@ def generate(prompt):
 
 def build_prompt(task, subject, grade, topics, lessons_per_week,
                  duration, curriculum, activity_duration=30, test_duration=45,
-                 question_specs=""):
+                 question_specs="", student_name="", performance_level="",
+                 strengths_input="", improvements_input="", comment_tone="",
+                 comment_length="", message_platform="", message_purpose="",
+                 message_details=""):
     ctx = {
         "IB (International Baccalaureate)":  "Use IB terminology (ATL skills, Learner Profile, Command Terms). Include inquiry questions.",
         "IGCSE (Cambridge)":                  "Use Cambridge command terms (describe, explain, evaluate, analyse). Align with Cambridge assessment objectives.",
@@ -378,6 +381,35 @@ def build_prompt(task, subject, grade, topics, lessons_per_week,
     base = (f"Curriculum: {curriculum}\nSubject: {subject}\nGrade: {grade}\n"
             f"Topics: {topics}\nLessons/week: {lessons_per_week}\n"
             f"Lesson duration: {duration} min\n\n{ctx}\n\n")
+
+    # Report Card Comment and Parent Message don't need the topics/curriculum base
+    if task == "🗣️ Report Card Comment":
+        name_ref = student_name.strip() if student_name.strip() else "the student"
+        return (
+            f"Write a report card comment for {name_ref}, a {grade} student studying {subject} "
+            f"({curriculum}).\n"
+            f"Overall performance level: {performance_level}\n"
+            f"Strengths to mention: {strengths_input if strengths_input.strip() else 'general positive effort'}\n"
+            f"Areas to improve: {improvements_input if improvements_input.strip() else 'general next steps for growth'}\n"
+            f"Tone: {comment_tone}\n"
+            f"Length: {comment_length}\n\n"
+            "Write ONLY the comment text, ready to paste directly into a school report card system. "
+            "Do not include a greeting, sign-off, or any explanation — just the comment paragraph itself. "
+            "Make it specific, professional, and avoid generic filler phrases."
+        )
+
+    if task == "💬 Parent Message":
+        return (
+            f"Write a {message_platform} message for parents about a {grade} {subject} class "
+            f"({curriculum}).\n"
+            f"Purpose: {message_purpose}\n"
+            f"Details to include: {message_details if message_details.strip() else 'general weekly update'}\n\n"
+            "Write ONLY the message text, ready to copy and send directly to parents. "
+            "Keep it warm, clear, and appropriately brief for the chosen style. "
+            "Do not include placeholder brackets like [date] — write it naturally, "
+            "or use generic phrasing like 'this week' instead of exact dates."
+        )
+
     return {
         "📋 Lesson Plan": base + (
             f"Create {lessons_per_week} detailed lesson plans, one per lesson this week. "
@@ -680,82 +712,105 @@ with st.sidebar:
         sign_out()
 
     st.divider()
-    st.header("⚙️ Settings")
-
-    curriculum = st.selectbox("🎓 Curriculum", list(GRADE_OPTIONS.keys()))
-    grade      = st.selectbox("📊 Grade / Year", GRADE_OPTIONS[curriculum])
-
-    subject_list = SUBJECT_OPTIONS.get(curriculum, ["Computer Science", "Mathematics", "Science", "English"])
-    subject_list = subject_list + ["Other (type manually)"]
-    subject_choice = st.selectbox("📖 Subject", subject_list)
-
-    if subject_choice == "Other (type manually)":
-        subject = st.text_input("Enter subject name", placeholder="e.g. Computer Science")
-    else:
-        subject = subject_choice
-
-    # ── Topics: use custom syllabus if teacher has saved one, else built-in list ──
-    custom_topics = get_syllabus(curriculum, grade, subject)
-    default_list  = TOPIC_OPTIONS.get(subject, [])
-    topic_list    = custom_topics if custom_topics is not None else default_list
-
-    if topic_list:
-        selected_topics = st.multiselect(
-            "📌 Topics (select one or more)",
-            topic_list,
-            help="Select topics to include — you can also add extra topics below"
-        )
-    else:
-        selected_topics = []
-        st.info("📋 No topic list yet for this subject/grade. Add your syllabus below, or type topics manually.")
-
-    extra_topics = st.text_area(
-        "➕ Additional topics (optional)",
-        placeholder="Type any extra topics not in the list above, separated by commas",
-        height=60
-    )
-
-    topic_parts = selected_topics + (
-        [t.strip() for t in extra_topics.split(",") if t.strip()] if extra_topics else []
-    )
-    topics = ", ".join(topic_parts)
-
-    # ── Syllabus upload / edit ──
-    with st.expander("📚 My Syllabus (add / edit topics for this subject)"):
-        st.caption(f"For: {curriculum} · {grade} · {subject}")
-        if custom_topics:
-            st.success(f"✅ You have {len(custom_topics)} custom topics saved for this subject.")
-            existing_text = ", ".join(custom_topics)
-        else:
-            st.caption("No custom syllabus saved yet. Add your topics below (comma separated) — "
-                       "these will appear in the dropdown above for future use.")
-            existing_text = ", ".join(default_list)
-
-        syllabus_text = st.text_area(
-            "Topics (comma separated)",
-            value=existing_text,
-            height=120,
-            key=f"syllabus_{curriculum}_{grade}_{subject}"
-        )
-        if st.button("💾 Save Syllabus", use_container_width=True,
-                      key=f"save_syllabus_{curriculum}_{grade}_{subject}"):
-            new_topics = [t.strip() for t in syllabus_text.split(",") if t.strip()]
-            if new_topics:
-                if save_syllabus(curriculum, grade, subject, new_topics):
-                    st.success("✅ Syllabus saved! It will now appear in the Topics dropdown.")
-                    st.rerun()
-            else:
-                st.warning("Please enter at least one topic.")
-
-    lessons_per_week = st.number_input("Lessons per week", min_value=1, max_value=10, value=3)
-    duration         = st.number_input("Lesson duration (min)", min_value=20, max_value=180, value=45)
-
-    st.divider()
-    task = st.selectbox("🛠 What to generate", [
+    st.header("🛠 What do you want to generate?")
+    task = st.selectbox("Choose a task", [
         "📋 Lesson Plan", "🎯 Class Activity", "📝 Homework",
         "📄 Unit Test", "📃 Class Test", "❓ Quiz",
         "📅 Weekly Schedule", "📊 Marking Rubric",
-    ])
+        "🗣️ Report Card Comment", "💬 Parent Message",
+    ], label_visibility="collapsed")
+
+    needs_curriculum_fields = task not in ["🗣️ Report Card Comment", "💬 Parent Message"]
+
+    st.divider()
+    st.header("⚙️ Settings")
+
+    if needs_curriculum_fields:
+        curriculum = st.selectbox("🎓 Curriculum", list(GRADE_OPTIONS.keys()))
+        grade      = st.selectbox("📊 Grade / Year", GRADE_OPTIONS[curriculum])
+
+        subject_list = SUBJECT_OPTIONS.get(curriculum, ["Computer Science", "Mathematics", "Science", "English"])
+        subject_list = subject_list + ["Other (type manually)"]
+        subject_choice = st.selectbox("📖 Subject", subject_list)
+
+        if subject_choice == "Other (type manually)":
+            subject = st.text_input("Enter subject name", placeholder="e.g. Computer Science")
+        else:
+            subject = subject_choice
+
+        # ── Topics: use custom syllabus if teacher has saved one, else built-in list ──
+        custom_topics = get_syllabus(curriculum, grade, subject)
+        default_list  = TOPIC_OPTIONS.get(subject, [])
+        topic_list    = custom_topics if custom_topics is not None else default_list
+
+        if topic_list:
+            selected_topics = st.multiselect(
+                "📌 Topics (select one or more)",
+                topic_list,
+                help="Select topics to include — you can also add extra topics below"
+            )
+        else:
+            selected_topics = []
+            st.info("📋 No topic list yet for this subject/grade. Add your syllabus below, or type topics manually.")
+
+        extra_topics = st.text_area(
+            "➕ Additional topics (optional)",
+            placeholder="Type any extra topics not in the list above, separated by commas",
+            height=60
+        )
+
+        topic_parts = selected_topics + (
+            [t.strip() for t in extra_topics.split(",") if t.strip()] if extra_topics else []
+        )
+        topics = ", ".join(topic_parts)
+
+        # ── Syllabus upload / edit ──
+        with st.expander("📚 My Syllabus (add / edit topics for this subject)"):
+            st.caption(f"For: {curriculum} · {grade} · {subject}")
+            if custom_topics:
+                st.success(f"✅ You have {len(custom_topics)} custom topics saved for this subject.")
+                existing_text = ", ".join(custom_topics)
+            else:
+                st.caption("No custom syllabus saved yet. Add your topics below (comma separated) — "
+                           "these will appear in the dropdown above for future use.")
+                existing_text = ", ".join(default_list)
+
+            syllabus_text = st.text_area(
+                "Topics (comma separated)",
+                value=existing_text,
+                height=120,
+                key=f"syllabus_{curriculum}_{grade}_{subject}"
+            )
+            if st.button("💾 Save Syllabus", use_container_width=True,
+                          key=f"save_syllabus_{curriculum}_{grade}_{subject}"):
+                new_topics = [t.strip() for t in syllabus_text.split(",") if t.strip()]
+                if new_topics:
+                    if save_syllabus(curriculum, grade, subject, new_topics):
+                        st.success("✅ Syllabus saved! It will now appear in the Topics dropdown.")
+                        st.rerun()
+                else:
+                    st.warning("Please enter at least one topic.")
+
+        lessons_per_week = st.number_input("Lessons per week", min_value=1, max_value=10, value=3)
+        duration         = st.number_input("Lesson duration (min)", min_value=20, max_value=180, value=45)
+
+    else:
+        # Report Card Comment / Parent Message still need a light Subject + Grade
+        # context, but skip the full curriculum/topics/syllabus machinery.
+        curriculum = st.selectbox("🎓 Curriculum", list(GRADE_OPTIONS.keys()))
+        grade      = st.selectbox("📊 Grade / Year", GRADE_OPTIONS[curriculum])
+        subject_list = SUBJECT_OPTIONS.get(curriculum, ["Computer Science", "Mathematics", "Science", "English"])
+        subject_list = subject_list + ["Other (type manually)"]
+        subject_choice = st.selectbox("📖 Subject", subject_list)
+        if subject_choice == "Other (type manually)":
+            subject = st.text_input("Enter subject name", placeholder="e.g. Computer Science")
+        else:
+            subject = subject_choice
+        topics = ""
+        lessons_per_week = 1
+        duration = 45
+
+    st.divider()
 
     activity_duration = duration
     test_duration     = 45
@@ -769,11 +824,65 @@ with st.sidebar:
     elif task == "📋 Lesson Plan":
         st.info(f"📅 Will generate {int(lessons_per_week)} lesson plan(s)")
 
+    # ── Report Card Comment specific inputs ──
+    student_name        = ""
+    performance_level   = ""
+    strengths_input      = ""
+    improvements_input   = ""
+    comment_tone         = "Warm and encouraging"
+    comment_length       = "Medium (3-4 sentences)"
+
+    if task == "🗣️ Report Card Comment":
+        st.info("✍️ Fill in details for this student's comment")
+        student_name = st.text_input("Student name (optional)", placeholder="e.g. Aryan, or leave blank for 'the student'")
+        performance_level = st.selectbox(
+            "Overall performance level",
+            ["Excellent", "Good / Above average", "Satisfactory / Average",
+             "Needs improvement", "Struggling significantly"]
+        )
+        strengths_input = st.text_area(
+            "Strengths (comma separated)",
+            placeholder="e.g. problem solving, class participation, neat work"
+        )
+        improvements_input = st.text_area(
+            "Areas to improve (comma separated)",
+            placeholder="e.g. time management, showing working, homework completion"
+        )
+        comment_tone = st.selectbox(
+            "Tone",
+            ["Warm and encouraging", "Formal and professional", "Direct and concise"]
+        )
+        comment_length = st.selectbox(
+            "Length",
+            ["Short (1-2 sentences)", "Medium (3-4 sentences)", "Detailed (5+ sentences)"]
+        )
+
+    # ── Parent Message specific inputs ──
+    message_purpose   = ""
+    message_details   = ""
+    message_platform  = "ClassDojo-style update"
+
+    if task == "💬 Parent Message":
+        st.info("💬 What's this message about?")
+        message_platform = st.selectbox(
+            "Style",
+            ["ClassDojo-style update", "Formal email", "Quick reminder/note"]
+        )
+        message_purpose = st.selectbox(
+            "Purpose",
+            ["Weekly class update", "Homework reminder", "Behavior/positive note",
+             "Upcoming test/event reminder", "General announcement", "Other (describe below)"]
+        )
+        message_details = st.text_area(
+            "Details to include",
+            placeholder="e.g. this week we covered fractions, field trip on Friday, please bring permission slip"
+        )
+
     # ── Question/Content customization (all tasks except Lesson Plan) ──
     question_specs = ""
     include_images = False
 
-    if task != "📋 Lesson Plan":
+    if task not in ["📋 Lesson Plan", "🗣️ Report Card Comment", "💬 Parent Message"]:
         with st.expander("🧩 Customize question types & marks", expanded=False):
             include_images = st.checkbox(
                 "🖼️ Include image/diagram suggestions",
@@ -862,17 +971,29 @@ with st.sidebar:
 # ── Main area ─────────────────────────────
 # ── Generate handling ──
 if generate_btn:
-    if not subject or not topics:
-        st.warning("Please fill in Subject and Topics.")
+    needs_topics = task not in ["🗣️ Report Card Comment", "💬 Parent Message"]
+    missing_subject = not subject
+    missing_topics = needs_topics and not topics
+
+    if missing_subject or missing_topics:
+        st.warning("Please fill in Subject" + (" and Topics." if needs_topics else "."))
     else:
-        title = f"{task} — {curriculum} · {subject} · {grade}"
+        if task == "🗣️ Report Card Comment":
+            title = f"{task} — {student_name.strip() or 'Student'} · {subject} · {grade}"
+        elif task == "💬 Parent Message":
+            title = f"{task} — {message_purpose} · {subject} · {grade}"
+        else:
+            title = f"{task} — {curriculum} · {subject} · {grade}"
         with st.spinner("Generating... ⏳"):
             try:
                 result = generate(build_prompt(
                     task, subject, grade, topics,
                     lessons_per_week, duration, curriculum,
                     activity_duration, test_duration,
-                    question_specs
+                    question_specs, student_name, performance_level,
+                    strengths_input, improvements_input, comment_tone,
+                    comment_length, message_platform, message_purpose,
+                    message_details
                 ))
                 st.session_state.current_output = result
                 st.session_state.current_title  = title
