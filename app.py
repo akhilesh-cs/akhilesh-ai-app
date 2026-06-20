@@ -366,7 +366,8 @@ def build_prompt(task, subject, grade, topics, lessons_per_week,
                  question_specs="", student_name="", performance_level="",
                  strengths_input="", improvements_input="", comment_tone="",
                  comment_length="", message_platform="", message_purpose="",
-                 message_details=""):
+                 message_details="", report_period="", topics_covered_input="",
+                 homeroom_input=""):
     ctx = {
         "IB (International Baccalaureate)":  "Use IB terminology (ATL skills, Learner Profile, Command Terms). Include inquiry questions.",
         "IGCSE (Cambridge)":                  "Use Cambridge command terms (describe, explain, evaluate, analyse). Align with Cambridge assessment objectives.",
@@ -385,9 +386,14 @@ def build_prompt(task, subject, grade, topics, lessons_per_week,
     # Report Card Comment and Parent Message don't need the topics/curriculum base
     if task == "🗣️ Report Card Comment":
         name_ref = student_name.strip() if student_name.strip() else "the student"
+        homeroom_line = f"Homeroom: {homeroom_input.strip()}\n" if homeroom_input.strip() else ""
+        topics_line = (f"Topics covered this {report_period}: {topics_covered_input.strip()}\n"
+                       if topics_covered_input.strip() else "")
         return (
-            f"Write a report card comment for {name_ref}, a {grade} student studying {subject} "
-            f"({curriculum}).\n"
+            f"Write a {report_period} report card comment for {name_ref}, a {grade} student "
+            f"studying {subject} ({curriculum}).\n"
+            f"{homeroom_line}"
+            f"{topics_line}"
             f"Overall performance level: {performance_level}\n"
             f"Strengths to mention: {strengths_input if strengths_input.strip() else 'general positive effort'}\n"
             f"Areas to improve: {improvements_input if improvements_input.strip() else 'general next steps for growth'}\n"
@@ -395,6 +401,7 @@ def build_prompt(task, subject, grade, topics, lessons_per_week,
             f"Length: {comment_length}\n\n"
             "Write ONLY the comment text, ready to paste directly into a school report card system. "
             "Do not include a greeting, sign-off, or any explanation — just the comment paragraph itself. "
+            "If topics covered were given, naturally reference what was learned this period. "
             "Make it specific, professional, and avoid generic filler phrases."
         )
 
@@ -833,12 +840,32 @@ with st.sidebar:
     comment_length       = "Medium (3-4 sentences)"
     report_mode          = "Single student"
     batch_groups         = []   # list of (level, [names])
+    report_period        = "Term 1"
+    topics_covered_input = ""
+    homeroom_input       = ""
 
     if task == "🗣️ Report Card Comment":
         report_mode = st.radio(
             "How many students?",
             ["Single student", "Whole class (batch)"],
             horizontal=True
+        )
+
+        report_period = st.selectbox(
+            "📆 Reporting period",
+            ["Term 1", "Term 2", "Term 3", "Semester 1", "Semester 2"]
+        )
+
+        col_hr, col_sub = st.columns(2)
+        with col_hr:
+            homeroom_input = st.text_input("🏫 Homeroom (optional)", placeholder="e.g. 7B")
+        with col_sub:
+            st.caption(f"Subject: **{subject}**")
+
+        topics_covered_input = st.text_area(
+            "📘 Topics covered this period",
+            placeholder="e.g. Algorithms, Loops, Functions, Intro to Databases",
+            help="Used to ground the comment in what was actually taught this term/semester"
         )
 
         comment_tone = st.selectbox(
@@ -1022,7 +1049,7 @@ if generate_btn:
         st.warning("Please add at least one student name under a performance level.")
     elif is_batch_report:
         total_students = sum(len(names) for _, names in batch_groups)
-        title = f"🗣️ Report Card Comments — Whole Class · {subject} · {grade}"
+        title = f"🗣️ Report Card Comments — Whole Class · {subject} · {grade} · {report_period}"
         progress_msg = st.empty()
         comments = []  # list of (name, level, comment_text)
         i = 0
@@ -1038,7 +1065,8 @@ if generate_btn:
                         question_specs, name, level,
                         strengths_input, improvements_input, comment_tone,
                         comment_length, message_platform, message_purpose,
-                        message_details
+                        message_details, report_period, topics_covered_input,
+                        homeroom_input
                     )
                     comment_text = generate(prompt)
                     comments.append((name, level, comment_text))
@@ -1047,7 +1075,8 @@ if generate_btn:
         progress_msg.empty()
 
         # Combine into one readable document
-        combined_parts = [f"# Report Card Comments — {subject}, {grade}\n"]
+        homeroom_header = f" · Homeroom {homeroom_input.strip()}" if homeroom_input.strip() else ""
+        combined_parts = [f"# Report Card Comments — {subject}, {grade}{homeroom_header}\n{report_period}\n"]
         for level, names in batch_groups:
             level_comments = [(n, c) for n, l, c in comments if l == level]
             if level_comments:
@@ -1065,7 +1094,7 @@ if generate_btn:
         st.success(f"✅ Generated {len(comments)} comments for the whole class!")
     else:
         if task == "🗣️ Report Card Comment":
-            title = f"{task} — {student_name.strip() or 'Student'} · {subject} · {grade}"
+            title = f"{task} — {student_name.strip() or 'Student'} · {subject} · {grade} · {report_period}"
         elif task == "💬 Parent Message":
             title = f"{task} — {message_purpose} · {subject} · {grade}"
         else:
@@ -1079,7 +1108,8 @@ if generate_btn:
                     question_specs, student_name, performance_level,
                     strengths_input, improvements_input, comment_tone,
                     comment_length, message_platform, message_purpose,
-                    message_details
+                    message_details, report_period, topics_covered_input,
+                    homeroom_input
                 ))
                 st.session_state.current_output = result
                 st.session_state.current_title  = title
