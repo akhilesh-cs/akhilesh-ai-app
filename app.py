@@ -506,44 +506,51 @@ def reference_image_search_url(query):
 import streamlit.components.v1 as components
 
 # Supabase puts the recovery token in the URL *fragment* (#access_token=...),
-# which Python can't read directly, and st.markdown() does not execute
-# <script> tags. We use components.html (renders in an iframe that DOES
-# run JS) to read the parent page's URL fragment and redirect with a
-# query param (?access_token=...) that Streamlit's Python code CAN read.
+# which Python can't read directly. Streamlit's components.html iframe is
+# sandboxed and browsers BLOCK iframes from calling location.replace() on
+# the parent window (confirmed: "current window does not have permission
+# to navigate the target frame"). Browsers DO allow a real user click on an
+# <a target="_top"> link to navigate the top frame, so instead of forcing
+# a JS redirect, we detect the token and show a clickable link/button.
 components.html("""
-<div id="recovery-status" style="font-family: sans-serif; font-size: 13px; color: #888;"></div>
+<div id="recovery-link-holder"></div>
 <script>
 (function() {
-    const statusEl = document.getElementById("recovery-status");
-    function log(msg) { if (statusEl) statusEl.innerText = msg; }
+    const holder = document.getElementById("recovery-link-holder");
     try {
         const topHash = window.top.location.hash;
-        log("checking hash...");
         if (topHash && topHash.includes("access_token")) {
             const hash = topHash.substring(1);
             const params = new URLSearchParams(hash);
             const accessToken = params.get("access_token");
             const refreshToken = params.get("refresh_token");
             const type = params.get("type");
-            if (accessToken && !window.top.location.search.includes("access_token")) {
+            if (accessToken && type === "recovery" &&
+                !window.top.location.search.includes("access_token")) {
                 const newUrl = window.top.location.pathname +
                     "?access_token=" + encodeURIComponent(accessToken) +
                     "&refresh_token=" + encodeURIComponent(refreshToken) +
                     "&type=" + encodeURIComponent(type);
-                log("redirecting...");
-                window.top.location.replace(newUrl);
-            } else {
-                log("token already processed");
+                const a = document.createElement("a");
+                a.href = newUrl;
+                a.target = "_top";
+                a.innerText = "Click here to continue to password reset →";
+                a.style = "display:inline-block;padding:10px 18px;background:#FF4B4B;" +
+                          "color:white;font-family:sans-serif;font-size:15px;" +
+                          "border-radius:8px;text-decoration:none;font-weight:600;";
+                holder.appendChild(a);
+                // Also try auto-click in case the browser permits a
+                // programmatic click on a real anchor (works in some browsers
+                // even when location.replace() is blocked).
+                setTimeout(function(){ a.click(); }, 50);
             }
-        } else {
-            log("");
         }
     } catch (e) {
-        log("redirect blocked: " + e.message);
+        holder.innerText = "Could not read reset link: " + e.message;
     }
 })();
 </script>
-""", height=20)
+""", height=60)
 
 qp = st.query_params
 is_recovery = qp.get("type") == "recovery" and qp.get("access_token")
@@ -573,35 +580,6 @@ if is_recovery and not st.session_state.user:
                 else:
                     st.error(msg)
     st.stop()
-
-# Manual fallback: if the page has a recovery fragment but auto-redirect
-# hasn't kicked in yet (common on first paint), show a button so the
-# teacher can force it without relying on timing.
-manual_check = st.session_state.get("_checked_recovery_once", False)
-if not st.session_state.user and not is_recovery and not manual_check:
-    with st.expander("🔑 Just clicked a password reset link and stuck here?"):
-        st.caption("If clicking the email link brought you to this page instead of a "
-                   "'Set a new password' screen, click below.")
-        if st.button("I clicked a reset link — take me to password reset"):
-            st.session_state["_checked_recovery_once"] = True
-            components.html("""
-            <script>
-            const topHash = window.top.location.hash;
-            if (topHash && topHash.includes("access_token")) {
-                const hash = topHash.substring(1);
-                const params = new URLSearchParams(hash);
-                const newUrl = window.top.location.pathname +
-                    "?access_token=" + encodeURIComponent(params.get("access_token")) +
-                    "&refresh_token=" + encodeURIComponent(params.get("refresh_token")) +
-                    "&type=" + encodeURIComponent(params.get("type"));
-                window.top.location.replace(newUrl);
-            } else {
-                alert("No reset token found in the URL. Please click the link from your email again.");
-            }
-            </script>
-            """, height=0)
-            st.rerun()
-
 
 
 # ═════════════════════════════════════════
