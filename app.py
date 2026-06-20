@@ -240,6 +240,13 @@ def sign_in(email, password):
     except Exception as e:
         return False, str(e)
 
+def reset_password(email):
+    try:
+        supabase.auth.reset_password_for_email(email)
+        return True, "If an account exists for this email, a password reset link has been sent. Check your inbox (and spam folder)."
+    except Exception as e:
+        return False, str(e)
+
 def sign_out():
     supabase.auth.sign_out()
     for key in ["user","token","refresh_token","current_output","current_title",
@@ -465,16 +472,21 @@ def extract_image_prompts(content):
     return re.findall(r"\[IMAGE:\s*(.*?)\]", content, re.IGNORECASE)
 
 def generate_image(prompt_text, width=512, height=512):
-    """Generate an image via Pollinations.ai (free, no API key needed). Returns bytes or None."""
+    """Generate an image via Pollinations.ai (free, no API key needed).
+    Returns (image_bytes_or_None, debug_info_string)."""
     try:
         encoded = urllib.parse.quote(prompt_text)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true"
-        resp = requests.get(url, timeout=60)
-        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image"):
-            return resp.content
-        return None
-    except Exception:
-        return None
+        url = (f"https://image.pollinations.ai/prompt/{encoded}"
+               f"?width={width}&height={height}&nologo=true&model=flux")
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; AITeacherApp/1.0)"}
+        resp = requests.get(url, headers=headers, timeout=90)
+        ctype = resp.headers.get("content-type", "")
+        if resp.status_code == 200 and ctype.startswith("image"):
+            return resp.content, "ok"
+        else:
+            return None, f"status={resp.status_code}, type={ctype}, body={resp.text[:150]}"
+    except Exception as e:
+        return None, f"exception: {e}"
 
 def reference_image_search_url(query):
     """Build a free reference image search link (Option C)."""
@@ -490,7 +502,8 @@ if not st.session_state.user:
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        mode = st.radio("", ["🔑 Login", "📝 Sign Up"], horizontal=True, label_visibility="collapsed")
+        mode = st.radio("", ["🔑 Login", "📝 Sign Up", "❓ Forgot Password"],
+                        horizontal=True, label_visibility="collapsed")
 
         if mode == "🔑 Login":
             st.subheader("Welcome back!")
@@ -506,8 +519,9 @@ if not st.session_state.user:
                         st.error(msg)
                 else:
                     st.warning("Please enter email and password.")
+            st.caption("Forgot your password? Click '❓ Forgot Password' above.")
 
-        else:
+        elif mode == "📝 Sign Up":
             st.subheader("Create your account")
             name     = st.text_input("Your Name",    placeholder="e.g. Mr. Akhilesh")
             school   = st.text_input("School Name",  placeholder="e.g. Singapore International School")
@@ -527,6 +541,20 @@ if not st.session_state.user:
                         st.success(msg)
                     else:
                         st.error(msg)
+
+        else:  # Forgot Password
+            st.subheader("Reset your password")
+            st.caption("Enter your email and we'll send you a password reset link.")
+            reset_email = st.text_input("Email", placeholder="teacher@school.com", key="reset_email")
+            if st.button("Send Reset Link", type="primary", use_container_width=True):
+                if reset_email:
+                    ok, msg = reset_password(reset_email)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+                else:
+                    st.warning("Please enter your email.")
 
     st.stop()
 
@@ -763,12 +791,24 @@ if generate_btn:
                 # Generate actual images for any [IMAGE: ...] placeholders
                 img_prompts = extract_image_prompts(result)
                 generated_images = {}
+                debug_msgs = []
                 if img_prompts:
-                    with st.spinner(f"Generating {len(img_prompts)} image(s)... 🎨"):
-                        for desc in img_prompts:
-                            img_bytes = generate_image(desc)
-                            if img_bytes:
-                                generated_images[desc] = img_bytes
+                    progress_msg = st.empty()
+                    for i, desc in enumerate(img_prompts, 1):
+                        progress_msg.info(f"🎨 Generating image {i}/{len(img_prompts)}: {desc[:50]}...")
+                        img_bytes, debug_info = generate_image(desc)
+                        if img_bytes:
+                            generated_images[desc] = img_bytes
+                        else:
+                            debug_msgs.append(f"'{desc[:40]}...' → {debug_info}")
+                    progress_msg.empty()
+                    n_ok = len(generated_images)
+                    if n_ok < len(img_prompts):
+                        st.warning(f"⚠️ Generated {n_ok}/{len(img_prompts)} images. "
+                                   "Remaining show as suggestions with search links.")
+                        with st.expander("🔧 Debug info (why images failed)"):
+                            for msg in debug_msgs:
+                                st.code(msg)
                 st.session_state.generated_images = generated_images
             except Exception as e:
                 st.error(f"Error: {e}")
@@ -868,3 +908,4 @@ if st.session_state.current_output:
                 st.markdown(part)
 else:
     st.info("👈 Fill in your details on the left and click ⚡ Generate")
+
