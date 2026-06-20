@@ -511,30 +511,39 @@ import streamlit.components.v1 as components
 # run JS) to read the parent page's URL fragment and redirect with a
 # query param (?access_token=...) that Streamlit's Python code CAN read.
 components.html("""
+<div id="recovery-status" style="font-family: sans-serif; font-size: 13px; color: #888;"></div>
 <script>
 (function() {
+    const statusEl = document.getElementById("recovery-status");
+    function log(msg) { if (statusEl) statusEl.innerText = msg; }
     try {
-        const topHash = window.parent.location.hash;
+        const topHash = window.top.location.hash;
+        log("checking hash...");
         if (topHash && topHash.includes("access_token")) {
             const hash = topHash.substring(1);
             const params = new URLSearchParams(hash);
             const accessToken = params.get("access_token");
             const refreshToken = params.get("refresh_token");
             const type = params.get("type");
-            if (accessToken && !window.parent.location.search.includes("access_token")) {
-                const newUrl = window.parent.location.pathname +
+            if (accessToken && !window.top.location.search.includes("access_token")) {
+                const newUrl = window.top.location.pathname +
                     "?access_token=" + encodeURIComponent(accessToken) +
                     "&refresh_token=" + encodeURIComponent(refreshToken) +
                     "&type=" + encodeURIComponent(type);
-                window.parent.location.replace(newUrl);
+                log("redirecting...");
+                window.top.location.replace(newUrl);
+            } else {
+                log("token already processed");
             }
+        } else {
+            log("");
         }
     } catch (e) {
-        console.error("recovery redirect error", e);
+        log("redirect blocked: " + e.message);
     }
 })();
 </script>
-""", height=0, width=0)
+""", height=20)
 
 qp = st.query_params
 is_recovery = qp.get("type") == "recovery" and qp.get("access_token")
@@ -564,9 +573,36 @@ if is_recovery and not st.session_state.user:
                 else:
                     st.error(msg)
     st.stop()
-elif qp.get("access_token") and not is_recovery:
-    # Token present but type isn't recovery, or already consumed — clear stale params
-    pass
+
+# Manual fallback: if the page has a recovery fragment but auto-redirect
+# hasn't kicked in yet (common on first paint), show a button so the
+# teacher can force it without relying on timing.
+manual_check = st.session_state.get("_checked_recovery_once", False)
+if not st.session_state.user and not is_recovery and not manual_check:
+    with st.expander("🔑 Just clicked a password reset link and stuck here?"):
+        st.caption("If clicking the email link brought you to this page instead of a "
+                   "'Set a new password' screen, click below.")
+        if st.button("I clicked a reset link — take me to password reset"):
+            st.session_state["_checked_recovery_once"] = True
+            components.html("""
+            <script>
+            const topHash = window.top.location.hash;
+            if (topHash && topHash.includes("access_token")) {
+                const hash = topHash.substring(1);
+                const params = new URLSearchParams(hash);
+                const newUrl = window.top.location.pathname +
+                    "?access_token=" + encodeURIComponent(params.get("access_token")) +
+                    "&refresh_token=" + encodeURIComponent(params.get("refresh_token")) +
+                    "&type=" + encodeURIComponent(params.get("type"));
+                window.top.location.replace(newUrl);
+            } else {
+                alert("No reset token found in the URL. Please click the link from your email again.");
+            }
+            </script>
+            """, height=0)
+            st.rerun()
+
+
 
 # ═════════════════════════════════════════
 #  LOGIN / SIGNUP PAGE
