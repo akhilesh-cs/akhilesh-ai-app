@@ -453,6 +453,25 @@ def build_prompt(task, subject, grade, topics, lessons_per_week,
         "📊 Marking Rubric": base + (
             "Create a marking rubric with 4-5 criteria, 4 performance levels "
             "(Excellent/Good/Satisfactory/Needs Improvement), descriptors, marks. " + question_specs),
+        "📘 Exam Base Question": base + (
+    "Create a formal exam-style question paper based on curriculum, grade, subject, and topics.\n\n"
+
+    "STRUCTURE:\n"
+    "Section A: Multiple Choice Questions (MCQs)\n"
+    "Section B: Short Answer Questions\n"
+    "Section C: Long Answer / Structured Questions\n\n"
+
+    "REQUIREMENTS:\n"
+    "- Follow real board exam patterns (IB / IGCSE / CBSE / A-Level)\n"
+    "- Ensure difficulty progression: easy → medium → hard\n"
+    "- Use command terms: define, explain, analyse, evaluate\n"
+    "- Include application-based reasoning questions\n"
+    "- Ensure clarity and proper exam formatting\n\n"
+
+    "MARK SCHEME:\n"
+    "At the end, provide a full marking scheme with step-by-step answers and marking points.\n"
+    + question_specs
+),
     }.get(task, base + f"Create educational content for {task}. " + question_specs)
 
 # ─────────────────────────────────────────
@@ -724,7 +743,7 @@ with st.sidebar:
         "📋 Lesson Plan", "🎯 Class Activity", "📝 Homework",
         "📄 Unit Test", "📃 Class Test", "❓ Quiz",
         "📅 Weekly Schedule", "📊 Marking Rubric",
-        "🗣️ Report Card Comment", "💬 Parent Message",
+        "🗣️ Report Card Comment", "💬 Parent Message", "📘 Exam Base Question",
     ], label_visibility="collapsed")
 
     needs_curriculum_fields = task not in ["🗣️ Report Card Comment", "💬 Parent Message"]
@@ -1237,4 +1256,3 @@ if st.session_state.current_output:
                 st.markdown(part)
 else:
     st.info("👈 Fill in your details on the left and click ⚡ Generate")
-
